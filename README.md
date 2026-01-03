@@ -63,17 +63,16 @@ local function isEnemy(plr)
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
     local hrp = getHRP(plr.Character)
     if not hum or not hrp or hum.Health <= 0 then return false end
-
     if not canTakeDamage(plr) then return false end
 
     return true
 end
 
-local function getMainColor(plr)
-    if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0,255,0)
+local function getESPColor(plr)
+    if canTakeDamage(plr) then
+        return Color3.fromRGB(255,255,0)
     end
-    return Color3.fromRGB(255,255,0)
+    return Color3.fromRGB(0,255,0)
 end
 
 local function getPredicted(hrp)
@@ -215,7 +214,7 @@ RunService.RenderStepped:Connect(function()
 
                 gui.Level.Text = "Lv. "..lvl
                 gui.Main.Text = "["..math.floor(pHum.Health).."] "..plr.DisplayName.." ("..dist.."m)"
-                gui.Main.TextColor3 = getMainColor(plr)
+                gui.Main.TextColor3 = getESPColor(plr)
             elseif gui then
                 gui.Enabled = false
             end
