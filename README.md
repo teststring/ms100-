@@ -50,9 +50,10 @@ local function hasProtection(char)
     return char and char:FindFirstChild("ForceField") ~= nil
 end
 
-local function isRealAlly(plr)
-    if not plr.Team or not LocalPlayer.Team then return false end
-    return plr.Team == LocalPlayer.Team
+local function canTakeDamage(plr)
+    if not plr.Character then return false end
+    if hasProtection(plr.Character) then return false end
+    return true
 end
 
 local function isEnemy(plr)
@@ -62,14 +63,14 @@ local function isEnemy(plr)
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
     local hrp = getHRP(plr.Character)
     if not hum or not hrp or hum.Health <= 0 then return false end
-    if hasProtection(plr.Character) then return false end
-    if isRealAlly(plr) then return false end
+
+    if not canTakeDamage(plr) then return false end
 
     return true
 end
 
 local function getMainColor(plr)
-    if isRealAlly(plr) then
+    if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
         return Color3.fromRGB(0,255,0)
     end
     return Color3.fromRGB(255,255,0)
