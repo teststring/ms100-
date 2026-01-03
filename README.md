@@ -46,13 +46,30 @@ local function getHRP(char)
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
+local function hasProtection(char)
+    return char and char:FindFirstChild("ForceField") ~= nil
+end
+
+local function isRealAlly(plr)
+    if not plr.Team or not LocalPlayer.Team then return false end
+    return plr.Team == LocalPlayer.Team
+end
+
 local function isEnemy(plr)
-    if not LocalPlayer.Team or not plr.Team then return true end
-    return plr.Team ~= LocalPlayer.Team
+    if plr == LocalPlayer then return false end
+    if not plr.Character then return false end
+
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    local hrp = getHRP(plr.Character)
+    if not hum or not hrp or hum.Health <= 0 then return false end
+    if hasProtection(plr.Character) then return false end
+    if isRealAlly(plr) then return false end
+
+    return true
 end
 
 local function getMainColor(plr)
-    if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
+    if isRealAlly(plr) then
         return Color3.fromRGB(0,255,0)
     end
     return Color3.fromRGB(255,255,0)
@@ -112,10 +129,9 @@ local function getClosestHRP()
     local closestDist = MaxRange
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and isEnemy(plr) and plr.Character then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if isEnemy(plr) then
             local thrp = getHRP(plr.Character)
-            if hum and hum.Health > 0 and thrp then
+            if thrp then
                 local dist = (thrp.Position - hrp.Position).Magnitude
                 if dist <= closestDist then
                     closestDist = dist
