@@ -27,7 +27,7 @@ local AllowedKeys = {
 }
 
 local function isSilentKeyDown()
-    for key,_ in pairs(AllowedKeys) do
+    for key in pairs(AllowedKeys) do
         if UserInputService:IsKeyDown(key) then
             return true
         end
@@ -46,30 +46,58 @@ local function getHRP(char)
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
-local function hasProtection(char)
-    return char and char:FindFirstChild("ForceField") ~= nil
-end
+local function isAllyWithMe(targetPlayer)
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not gui then return false end
 
-local function canTakeDamage(plr)
-    if not plr.Character then return false end
-    if hasProtection(plr.Character) then return false end
-    return true
+    local scrolling =
+        gui:FindFirstChild("Main")
+        and gui.Main:FindFirstChild("Allies")
+        and gui.Main.Allies:FindFirstChild("Container")
+        and gui.Main.Allies.Container:FindFirstChild("Allies")
+        and gui.Main.Allies.Container.Allies:FindFirstChild("ScrollingFrame")
+
+    if scrolling then
+        for _, frame in pairs(scrolling:GetDescendants()) do
+            if frame:IsA("ImageButton") and frame.Name == targetPlayer.Name then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 local function isEnemy(plr)
-    if plr == LocalPlayer then return false end
-    if not plr.Character then return false end
+    if not plr or plr == LocalPlayer then
+        return false
+    end
 
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    local hrp = getHRP(plr.Character)
-    if not hum or not hrp or hum.Health <= 0 then return false end
-    if not canTakeDamage(plr) then return false end
+    local myTeam = LocalPlayer.Team
+    local hisTeam = plr.Team
+
+    if myTeam and hisTeam then
+        if myTeam.Name == "Pirates" and hisTeam.Name == "Marines" then
+            return true
+        elseif myTeam.Name == "Marines" and hisTeam.Name == "Pirates" then
+            return true
+        end
+
+        if myTeam.Name == "Pirates" and hisTeam.Name == "Pirates" then
+            return not isAllyWithMe(plr)
+        end
+
+        if myTeam.Name == "Marines" and hisTeam.Name == "Marines" then
+            return false
+        end
+    end
 
     return true
 end
 
-local function getESPColor(plr)
-    if canTakeDamage(plr) then
+local function getMainColor(plr)
+    if plr == LocalPlayer or isAllyWithMe(plr) then
+        return Color3.fromRGB(0,255,0)
+    elseif isEnemy(plr) then
         return Color3.fromRGB(255,255,0)
     end
     return Color3.fromRGB(0,255,0)
@@ -121,27 +149,24 @@ local function createESP(plr)
 end
 
 local function getClosestHRP()
-    local char = LocalPlayer.Character
-    local hrp = getHRP(char)
-    if not hrp then return nil end
+    local myHRP = getHRP(LocalPlayer.Character)
+    if not myHRP then return nil end
 
-    local closestHRP = nil
-    local closestDist = MaxRange
-
+    local closest, dist = nil, MaxRange
     for _, plr in ipairs(Players:GetPlayers()) do
-        if isEnemy(plr) then
-            local thrp = getHRP(plr.Character)
-            if thrp then
-                local dist = (thrp.Position - hrp.Position).Magnitude
-                if dist <= closestDist then
-                    closestDist = dist
-                    closestHRP = thrp
+        if plr ~= LocalPlayer and isEnemy(plr) and plr.Character then
+            local hrp = getHRP(plr.Character)
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local d = (hrp.Position - myHRP.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = hrp
                 end
             end
         end
     end
-
-    return closestHRP
+    return closest
 end
 
 task.spawn(function()
@@ -155,7 +180,7 @@ task.spawn(function()
         and TargetPosition
         and typeof(args[1]) == "Vector3" then
             args[1] = TargetPosition
-            return old(self,unpack(args))
+            return old(self, unpack(args))
         end
         return old(self,...)
     end)
@@ -180,12 +205,8 @@ RunService.RenderStepped:Connect(function()
     end
 
     if SilentAimEnabled and isSilentKeyDown() then
-        local thrp = getClosestHRP()
-        if thrp then
-            TargetPosition = getPredicted(thrp)
-        else
-            TargetPosition = nil
-        end
+        local t = getClosestHRP()
+        TargetPosition = t and getPredicted(t) or nil
     else
         TargetPosition = nil
     end
@@ -213,8 +234,9 @@ RunService.RenderStepped:Connect(function()
                 end
 
                 gui.Level.Text = "Lv. "..lvl
-                gui.Main.Text = "["..math.floor(pHum.Health).."] "..plr.DisplayName.." ("..dist.."m)"
-                gui.Main.TextColor3 = getESPColor(plr)
+                gui.Main.Text =
+                    "["..math.floor(pHum.Health).."] "..plr.DisplayName.." ("..dist.."m)"
+                gui.Main.TextColor3 = getMainColor(plr)
             elseif gui then
                 gui.Enabled = false
             end
@@ -240,9 +262,6 @@ UserInputService.InputBegan:Connect(function(input,gp)
         SpeedEnabled = not SpeedEnabled
         AntiStunEnabled = SpeedEnabled
     elseif input.KeyCode == Enum.KeyCode.P then
-        if not SpeedEnabled then
-            AntiStunEnabled = not AntiStunEnabled
-            AntiStunPower = AntiStunEnabled and 0.4 or 1.2
-        end
+        AntiStunEnabled = not AntiStunEnabled
     end
 end)
